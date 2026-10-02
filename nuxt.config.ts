@@ -6,7 +6,7 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: 'pt-BR' },
-      title: 'G12 Greedy'
+      title: 'Otimize'
     }
   }
 })
