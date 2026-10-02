@@ -11,6 +11,11 @@ interface Dados {
   medicos: Medico[]
 }
 
+interface Selecao {
+  medicoId: string | null
+  data: string
+}
+
 const CHAVE = 'otimize'
 
 function carregar(): Dados {
@@ -22,8 +27,16 @@ function carregar(): Dados {
   }
 }
 
+function hoje(): string {
+  const agora = new Date()
+  const mes = String(agora.getMonth() + 1).padStart(2, '0')
+  const dia = String(agora.getDate()).padStart(2, '0')
+  return `${agora.getFullYear()}-${mes}-${dia}`
+}
+
 export function useClinica() {
   const dados = useState<Dados>('clinica', carregar)
+  const selecao = useState<Selecao>('selecao', () => ({ medicoId: null, data: hoje() }))
 
   function salvar() {
     localStorage.setItem(CHAVE, JSON.stringify(dados.value))
@@ -59,8 +72,13 @@ export function useClinica() {
 
   function removerMedico(id: string) {
     dados.value.medicos = dados.value.medicos.filter((medico) => medico.id !== id)
+    if (selecao.value.medicoId === id) selecao.value.medicoId = null
     salvar()
   }
 
-  return { medicosOrdenados, validarMedico, salvarMedico, removerMedico }
+  function selecionarData(valor: string) {
+    selecao.value.data = valor && valor >= hoje() ? valor : hoje()
+  }
+
+  return { medicosOrdenados, selecao, hoje, selecionarData, validarMedico, salvarMedico, removerMedico }
 }

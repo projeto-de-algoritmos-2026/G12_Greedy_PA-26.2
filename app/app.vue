@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ESPECIALIDADES, type Especialidade, type Medico } from '~/composables/useClinica'
 
-const { medicosOrdenados, salvarMedico, removerMedico } = useClinica()
+const { medicosOrdenados, selecao, hoje, selecionarData, salvarMedico, removerMedico } = useClinica()
 
 const nome = ref('')
 const especialidade = ref<Especialidade | null>(null)
@@ -31,6 +31,17 @@ function remover(medico: Medico) {
   if (!window.confirm(`Remover o médico ${medico.nome}?`)) return
   removerMedico(medico.id)
   if (editandoId.value === medico.id) limparFormulario()
+}
+
+function alterarData(evento: Event) {
+  const valor = (evento.target as HTMLInputElement).value
+  if (valor && valor >= hoje()) selecao.value.data = valor
+}
+
+function sairDaData(evento: Event) {
+  const campo = evento.target as HTMLInputElement
+  selecionarData(campo.value)
+  campo.value = selecao.value.data
 }
 </script>
 
@@ -88,6 +99,31 @@ function remover(medico: Medico) {
             </div>
           </li>
         </ul>
+      </section>
+
+      <section class="space-y-3 rounded-lg bg-white p-4 shadow">
+        <h2 class="text-lg font-semibold">Agenda</h2>
+        <p v-if="medicosOrdenados.length === 0" class="text-gray-500">Cadastre um médico para montar a agenda.</p>
+        <div class="flex flex-col gap-3 sm:flex-row">
+          <label v-if="medicosOrdenados.length > 0" class="flex flex-1 flex-col gap-1 text-sm">
+            Médico
+            <select v-model="selecao.medicoId" class="rounded border border-gray-300 px-3 py-2">
+              <option :value="null">Selecione um médico</option>
+              <option v-for="medico in medicosOrdenados" :key="medico.id" :value="medico.id">{{ medico.nome }}</option>
+            </select>
+          </label>
+          <label class="flex flex-col gap-1 text-sm">
+            Data
+            <input
+              type="date"
+              :value="selecao.data"
+              :min="hoje()"
+              class="rounded border border-gray-300 px-3 py-2"
+              @change="alterarData"
+              @blur="sairDaData"
+            />
+          </label>
+        </div>
       </section>
     </main>
   </div>
