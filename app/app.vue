@@ -1,7 +1,18 @@
 <script setup lang="ts">
-import { ESPECIALIDADES, type Especialidade, type Medico } from '~/composables/useClinica'
+import { ESPECIALIDADES, type Especialidade, type Medico, type Pedido } from '~/composables/useClinica'
 
-const { medicosOrdenados, selecao, hoje, selecionarData, salvarMedico, removerMedico } = useClinica()
+const {
+  medicosOrdenados,
+  selecao,
+  hoje,
+  selecionarData,
+  salvarMedico,
+  removerMedico,
+  pedidosSelecionados,
+  salvarPedido,
+  removerPedido,
+  paraHorario
+} = useClinica()
 
 const nome = ref('')
 const especialidade = ref<Especialidade | null>(null)
@@ -32,6 +43,40 @@ function remover(medico: Medico) {
   removerMedico(medico.id)
   if (editandoId.value === medico.id) limparFormulario()
 }
+
+const paciente = ref('')
+const inicio = ref('')
+const fim = ref('')
+const erroPedido = ref<string | null>(null)
+const editandoPedidoId = ref<string | null>(null)
+
+function limparPedido() {
+  paciente.value = ''
+  inicio.value = ''
+  fim.value = ''
+  erroPedido.value = null
+  editandoPedidoId.value = null
+}
+
+function enviarPedido() {
+  erroPedido.value = salvarPedido(paciente.value, inicio.value, fim.value, editandoPedidoId.value ?? undefined)
+  if (!erroPedido.value) limparPedido()
+}
+
+function editarPedido(pedido: Pedido) {
+  paciente.value = pedido.paciente
+  inicio.value = paraHorario(pedido.inicio)
+  fim.value = paraHorario(pedido.fim)
+  erroPedido.value = null
+  editandoPedidoId.value = pedido.id
+}
+
+function removerPedidoDaLista(id: string) {
+  removerPedido(id)
+  if (editandoPedidoId.value === id) limparPedido()
+}
+
+watch(() => [selecao.value.medicoId, selecao.value.data], limparPedido)
 
 function alterarData(evento: Event) {
   const valor = (evento.target as HTMLInputElement).value
@@ -124,6 +169,57 @@ function sairDaData(evento: Event) {
             />
           </label>
         </div>
+        <template v-if="medicosOrdenados.length > 0">
+          <p v-if="selecao.medicoId === null" class="text-gray-500">
+            Selecione um médico para cadastrar pedidos de consulta.
+          </p>
+          <template v-else>
+            <h3 class="font-semibold">{{ editandoPedidoId ? 'Editar pedido' : 'Cadastrar pedido' }}</h3>
+            <form class="flex flex-col gap-3 sm:flex-row sm:items-end" @submit.prevent="enviarPedido">
+              <label class="flex flex-1 flex-col gap-1 text-sm">
+                Paciente
+                <input v-model="paciente" type="text" class="rounded border border-gray-300 px-3 py-2" />
+              </label>
+              <label class="flex flex-col gap-1 text-sm">
+                Início
+                <input v-model="inicio" type="time" class="rounded border border-gray-300 px-3 py-2" />
+              </label>
+              <label class="flex flex-col gap-1 text-sm">
+                Término
+                <input v-model="fim" type="time" class="rounded border border-gray-300 px-3 py-2" />
+              </label>
+              <button type="submit" class="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700">
+                Salvar
+              </button>
+              <button
+                v-if="editandoPedidoId"
+                type="button"
+                class="rounded border border-gray-300 px-4 py-2 font-medium hover:bg-gray-100"
+                @click="limparPedido"
+              >
+                Cancelar
+              </button>
+            </form>
+            <p v-if="erroPedido" class="text-sm text-red-600">{{ erroPedido }}</p>
+            <p v-if="pedidosSelecionados.length === 0" class="text-gray-500">Nenhum pedido de consulta para esta data.</p>
+            <ul v-else class="divide-y divide-gray-200">
+              <li v-for="pedido in pedidosSelecionados" :key="pedido.id" class="flex items-center justify-between gap-3 py-2">
+                <div>
+                  <p class="font-medium">{{ pedido.paciente }}</p>
+                  <p class="text-sm text-gray-500">{{ paraHorario(pedido.inicio) }} – {{ paraHorario(pedido.fim) }}</p>
+                </div>
+                <div class="flex gap-2">
+                  <button type="button" class="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-100" @click="editarPedido(pedido)">
+                    Editar
+                  </button>
+                  <button type="button" class="rounded border border-red-300 px-3 py-1 text-sm text-red-600 hover:bg-red-50" @click="removerPedidoDaLista(pedido.id)">
+                    Remover
+                  </button>
+                </div>
+              </li>
+            </ul>
+          </template>
+        </template>
       </section>
     </main>
   </div>
