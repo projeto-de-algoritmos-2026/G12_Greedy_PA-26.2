@@ -16,9 +16,16 @@ export interface Pedido {
   fim: number
 }
 
+interface Agenda {
+  medicoId: string
+  data: string
+  pedidoIds: string[]
+}
+
 interface Dados {
   medicos: Medico[]
   pedidos: Pedido[]
+  agendas: Agenda[]
 }
 
 interface Selecao {
@@ -33,10 +40,11 @@ function carregar(): Dados {
     const dados = JSON.parse(localStorage.getItem(CHAVE) ?? '')
     return {
       medicos: Array.isArray(dados?.medicos) ? dados.medicos : [],
-      pedidos: Array.isArray(dados?.pedidos) ? dados.pedidos : []
+      pedidos: Array.isArray(dados?.pedidos) ? dados.pedidos : [],
+      agendas: Array.isArray(dados?.agendas) ? dados.agendas : []
     }
   } catch {
-    return { medicos: [], pedidos: [] }
+    return { medicos: [], pedidos: [], agendas: [] }
   }
 }
 
@@ -55,6 +63,21 @@ function paraMinutos(horario: string): number {
 export function paraHorario(minutos: number): string {
   const horas = String(Math.floor(minutos / 60)).padStart(2, '0')
   return `${horas}:${String(minutos % 60).padStart(2, '0')}`
+}
+
+export function agendar(pedidos: Pedido[]): Pedido[] {
+  const ordenados = [...pedidos].sort(
+    (a, b) => a.fim - b.fim || b.inicio - a.inicio || a.paciente.localeCompare(b.paciente, 'pt-BR')
+  )
+  const aceitos: Pedido[] = []
+  let ultimoFim = -Infinity
+  for (const pedido of ordenados) {
+    if (pedido.inicio >= ultimoFim) {
+      aceitos.push(pedido)
+      ultimoFim = pedido.fim
+    }
+  }
+  return aceitos
 }
 
 export function useClinica() {
@@ -96,15 +119,49 @@ export function useClinica() {
   function removerMedico(id: string) {
     dados.value.medicos = dados.value.medicos.filter((medico) => medico.id !== id)
     dados.value.pedidos = dados.value.pedidos.filter((pedido) => pedido.medicoId !== id)
+    dados.value.agendas = dados.value.agendas.filter((agenda) => agenda.medicoId !== id)
     if (selecao.value.medicoId === id) selecao.value.medicoId = null
     salvar()
   }
 
-  const pedidosSelecionados = computed(() =>
-    dados.value.pedidos
-      .filter((pedido) => pedido.medicoId === selecao.value.medicoId && pedido.data === selecao.value.data)
+  const pedidosSelecionados = computed(() => {
+    const { medicoId, data } = selecao.value
+    return dados.value.pedidos
+      .filter((pedido) => pedido.medicoId === medicoId && pedido.data === data)
       .sort((a, b) => a.inicio - b.inicio || a.fim - b.fim || a.paciente.localeCompare(b.paciente, 'pt-BR'))
-  )
+  })
+
+  const resultadoSelecionado = computed(() => {
+    const agenda = dados.value.agendas.find(
+      (item) => item.medicoId === selecao.value.medicoId && item.data === selecao.value.data
+    )
+    const ids = new Set(agenda?.pedidoIds)
+    return {
+      aceitos: pedidosSelecionados.value.filter((pedido) => ids.has(pedido.id)),
+      rejeitados: pedidosSelecionados.value.filter((pedido) => !ids.has(pedido.id))
+    }
+  })
+
+  const linhaDoTempo = computed(() => {
+    const pedidos = pedidosSelecionados.value
+    if (pedidos.length === 0) return null
+    const inicio = Math.floor(Math.min(...pedidos.map((pedido) => pedido.inicio)) / 60) * 60
+    const fim = Math.ceil(Math.max(...pedidos.map((pedido) => pedido.fim)) / 60) * 60
+    const duracao = fim - inicio
+    const aceitos = new Set(resultadoSelecionado.value.aceitos.map((pedido) => pedido.id))
+    return {
+      horas: Array.from({ length: duracao / 60 + 1 }, (_, indice) => ({
+        rotulo: paraHorario(inicio + indice * 60),
+        posicao: ((indice * 60) / duracao) * 100
+      })),
+      barras: pedidos.map((pedido) => ({
+        pedido,
+        aceito: aceitos.has(pedido.id),
+        esquerda: ((pedido.inicio - inicio) / duracao) * 100,
+        largura: ((pedido.fim - pedido.inicio) / duracao) * 100
+      }))
+    }
+  })
 
   function validarPedido(paciente: string, inicio: string, fim: string, idIgnorado?: string): string | null {
     if (!paciente || !inicio || !fim) return 'Preencha todos os campos.'
@@ -148,6 +205,17 @@ export function useClinica() {
     salvar()
   }
 
+  function atualizarAgenda() {
+    const { medicoId, data } = selecao.value
+    if (medicoId === null) return
+    const pedidoIds = agendar(pedidosSelecionados.value).map((pedido) => pedido.id)
+    dados.value.agendas = dados.value.agendas.filter(
+      (agenda) => agenda.medicoId !== medicoId || agenda.data !== data
+    )
+    dados.value.agendas.push({ medicoId, data, pedidoIds })
+    salvar()
+  }
+
   function selecionarData(valor: string) {
     selecao.value.data = valor && valor >= hoje() ? valor : hoje()
   }
@@ -163,6 +231,9 @@ export function useClinica() {
     pedidosSelecionados,
     salvarPedido,
     removerPedido,
+    atualizarAgenda,
+    resultadoSelecionado,
+    linhaDoTempo,
     paraHorario
   }
 }

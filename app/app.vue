@@ -11,8 +11,13 @@ const {
   pedidosSelecionados,
   salvarPedido,
   removerPedido,
+  atualizarAgenda,
+  resultadoSelecionado,
+  linhaDoTempo,
   paraHorario
 } = useClinica()
+
+watch(pedidosSelecionados, atualizarAgenda, { immediate: true, deep: true })
 
 const nome = ref('')
 const especialidade = ref<Especialidade | null>(null)
@@ -218,6 +223,55 @@ function sairDaData(evento: Event) {
                 </div>
               </li>
             </ul>
+            <h3 class="font-semibold">Agenda do dia</h3>
+            <p class="text-sm text-gray-700">
+              {{ resultadoSelecionado.aceitos.length }} de {{ pedidosSelecionados.length }}
+              {{ pedidosSelecionados.length === 1 ? 'consulta agendada' : 'consultas agendadas' }}
+            </p>
+            <template v-if="linhaDoTempo">
+              <div class="flex gap-4 text-sm">
+                <span class="flex items-center gap-1"><span class="h-3 w-5 rounded bg-green-600"></span>Aceito</span>
+                <span class="flex items-center gap-1"><span class="h-3 w-5 rounded border border-dashed border-gray-400 bg-gray-100"></span>Rejeitado</span>
+              </div>
+              <div class="overflow-x-auto">
+                <div class="relative mx-5 pb-1 pt-5" :style="{ minWidth: `${linhaDoTempo.horas.length * 48}px` }">
+                  <div
+                    v-for="hora in linhaDoTempo.horas"
+                    :key="hora.rotulo"
+                    class="absolute bottom-0 top-0 border-l border-gray-200"
+                    :style="{ left: `${hora.posicao}%` }"
+                  >
+                    <span class="absolute top-0 -translate-x-1/2 text-xs text-gray-500">{{ hora.rotulo }}</span>
+                  </div>
+                  <div v-for="barra in linhaDoTempo.barras" :key="barra.pedido.id" class="relative h-7">
+                    <div
+                      class="absolute inset-y-1 truncate rounded px-1 text-xs leading-5"
+                      :class="barra.aceito ? 'bg-green-600 text-white' : 'border border-dashed border-gray-400 bg-gray-100 text-gray-600'"
+                      :style="{ left: `${barra.esquerda}%`, width: `${barra.largura}%` }"
+                      :title="`${barra.pedido.paciente} — ${paraHorario(barra.pedido.inicio)} – ${paraHorario(barra.pedido.fim)}`"
+                    >
+                      {{ barra.pedido.paciente }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+            <div
+              v-for="grupo in [
+                { titulo: 'Aceitos', pedidos: resultadoSelecionado.aceitos, vazio: 'Nenhuma consulta agendada.' },
+                { titulo: 'Rejeitados', pedidos: resultadoSelecionado.rejeitados, vazio: 'Nenhum pedido rejeitado.' }
+              ]"
+              :key="grupo.titulo"
+            >
+              <h4 class="text-sm font-semibold">{{ grupo.titulo }}</h4>
+              <p v-if="grupo.pedidos.length === 0" class="text-gray-500">{{ grupo.vazio }}</p>
+              <ul v-else class="divide-y divide-gray-200">
+                <li v-for="pedido in grupo.pedidos" :key="pedido.id" class="py-2">
+                  <p class="font-medium">{{ pedido.paciente }}</p>
+                  <p class="text-sm text-gray-500">{{ paraHorario(pedido.inicio) }} – {{ paraHorario(pedido.fim) }}</p>
+                </li>
+              </ul>
+            </div>
           </template>
         </template>
       </section>
