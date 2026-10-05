@@ -23,7 +23,11 @@ A aplicação funciona como um organizador de clínica médica: o usuário cadas
 
 ## Foto de Exemplo
 
+![Foto de Exemplo](exemplo.png)
+
 ## Vídeo
+
+[Vídeo de demonstração](https://youtu.be/0KKdbj03G-k)
 
 ## Algoritmo de agendamento
 
